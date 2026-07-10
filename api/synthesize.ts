@@ -1,4 +1,4 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash-lite";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -50,13 +50,13 @@ REGLAS DE ESTILO:
 - No sacrifiques conceptos importantes por compactar; compacta eliminando relleno, repeticiones, ejemplos secundarios y divisiones innecesarias.`;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const content = req.body?.content;
+    const content = (req.body as any)?.content;
     const hasContent = content && typeof content === "string" && content.trim().length > 0;
 
     if (!hasContent) {

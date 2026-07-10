@@ -1,29 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ComponentType } from 'react';
 import { motion } from 'motion/react';
-import { BarChart3, Database, Gamepad2, LayoutGrid } from 'lucide-react';
+import { BarChart3, Database, Gamepad2, LayoutGrid, Loader2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { HUDConfig } from '../components/training/HUDConfig';
 import { DataPackManager } from '../components/training/DataPackManager';
 import { TableEditor } from '../components/coach/TableEditor';
 import type { PreflopTable } from '../types/coach';
+import { 
+  getAllPreflopTablesAsync, 
+  createPreflopTableAsync, 
+  updatePreflopTableAsync, 
+  deletePreflopTableAsync 
+} from '../services/supabaseService';
 
 type DataSection = 'hud' | 'tables' | 'games';
-
-const LS_TABLES_KEY = 'pokercoach_tables_databases';
-
-function loadTables(): PreflopTable[] {
-  try {
-    const raw = localStorage.getItem(LS_TABLES_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveTables(tables: PreflopTable[]) {
-  localStorage.setItem(LS_TABLES_KEY, JSON.stringify(tables));
-}
 
 const sections: { id: DataSection; label: string; description: string; icon: ComponentType<any> }[] = [
   {
@@ -48,13 +39,71 @@ const sections: { id: DataSection; label: string; description: string; icon: Com
 
 export function Data() {
   const [activeSection, setActiveSection] = useState<DataSection>('games');
-  const [tables, setTables] = useState<PreflopTable[]>(() => loadTables());
+  const [tables, setTables] = useState<PreflopTable[]>([]);
+  const [loadingTables, setLoadingTables] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
 
-  const handleSaveTables = (nextTables: PreflopTable[]) => {
+  useEffect(() => {
+    if (activeSection === 'tables') {
+      loadTables();
+    }
+  }, [activeSection]);
+
+  const loadTables = async () => {
+    setLoadingTables(true);
+    const dbTables = await getAllPreflopTablesAsync();
+    setTables(dbTables);
+    setLoadingTables(false);
+  };
+
+  const handleSaveTables = async (nextTables: PreflopTable[]) => {
+    setSaving(true);
+    
+    // Obtener IDs existentes en la base de datos
+    const existingIds = new Set(tables.map(t => t.id));
+    const nextIds = new Set(nextTables.map(t => t.id));
+    
+    // Eliminar tablas que ya no existen
+    for (const table of tables) {
+      if (!nextIds.has(table.id) && !table.id.startsWith('table-')) {
+        await deletePreflopTableAsync(table.id);
+      }
+    }
+    
+    // Crear o actualizar tablas
+    for (const table of nextTables) {
+      if (table.id.startsWith('table-')) {
+        // Nueva tabla, crear en Supabase
+        const newTable = await createPreflopTableAsync({
+          position: table.position,
+          openRaise: table.openRaise,
+          openRaisePercentage: table.openRaisePercentage,
+          threeBet: table.threeBet,
+          threeBetPercentage: table.threeBetPercentage,
+          call: table.call,
+          callPercentage: table.callPercentage,
+        });
+        if (newTable) {
+          table.id = newTable.id;
+        }
+      } else if (existingIds.has(table.id)) {
+        // Tabla existente, actualizar
+        await updatePreflopTableAsync(table.id, {
+          position: table.position,
+          openRaise: table.openRaise,
+          openRaisePercentage: table.openRaisePercentage,
+          threeBet: table.threeBet,
+          threeBetPercentage: table.threeBetPercentage,
+          call: table.call,
+          callPercentage: table.callPercentage,
+        });
+      }
+    }
+    
     setTables(nextTables);
-    saveTables(nextTables);
-    setSavedMessage('Tablas guardadas correctamente.');
+    setSaving(false);
+    setSavedMessage('Tablas guardadas correctamente en Supabase.');
     setTimeout(() => setSavedMessage(''), 3000);
   };
 
@@ -127,7 +176,14 @@ export function Data() {
                 {savedMessage}
               </div>
             )}
-            <TableEditor tables={tables} onSave={handleSaveTables} />
+            {loadingTables ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 animate-spin text-accent-gold" />
+                <span className="ml-2 text-text-secondary">Cargando tablas...</span>
+              </div>
+            ) : (
+              <TableEditor tables={tables} onSave={handleSaveTables} saving={saving} />
+            )}
           </div>
         )}
 

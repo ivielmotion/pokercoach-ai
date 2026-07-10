@@ -1,7 +1,7 @@
 // Editor de tablas preflop del coach
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Plus, Trash2, Save, Upload, LayoutGrid, Edit2, Check } from 'lucide-react';
+import { Plus, Trash2, Save, Upload, LayoutGrid, Edit2, Check, Loader2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { PreflopTable } from '../../types/coach';
 import { FileUploader } from './FileUploader';
@@ -10,11 +10,12 @@ import { parseTableMarkdown, parseTableJSON } from '../../data/parsers/tablePars
 interface TableEditorProps {
   tables: PreflopTable[];
   onSave: (tables: PreflopTable[]) => void;
+  saving?: boolean;
 }
 
 const POSITIONS = ['UTG', 'MP', 'CO', 'BTN', 'SB', 'BB'];
 
-export function TableEditor({ tables, onSave }: TableEditorProps) {
+export function TableEditor({ tables, onSave, saving = false }: TableEditorProps) {
   const [localTables, setLocalTables] = useState<PreflopTable[]>(tables);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -29,6 +30,10 @@ export function TableEditor({ tables, onSave }: TableEditorProps) {
     callPercentage: 0
   });
   const [showFileUpload, setShowFileUpload] = useState(false);
+
+  useEffect(() => {
+    setLocalTables(tables);
+  }, [tables]);
 
   const handleSave = () => {
     onSave(localTables);
@@ -128,11 +133,16 @@ export function TableEditor({ tables, onSave }: TableEditorProps) {
           
           <button
             onClick={handleSave}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] md:text-xs font-medium bg-accent-gold text-black hover:bg-accent-gold/90 transition-all"
+            disabled={saving}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] md:text-xs font-medium bg-accent-gold text-black hover:bg-accent-gold/90 transition-all disabled:opacity-50"
           >
-            <Save className="w-3 h-3 md:w-3.5 md:h-3.5" />
-            <span className="hidden sm:inline">Guardar</span>
-            <span className="sm:hidden"></span>
+            {saving ? (
+              <Loader2 className="w-3 h-3 md:w-3.5 md:h-3.5 animate-spin" />
+            ) : (
+              <Save className="w-3 h-3 md:w-3.5 md:h-3.5" />
+            )}
+            <span className="hidden sm:inline">{saving ? 'Guardando...' : 'Guardar'}</span>
+            <span className="sm:hidden">{saving ? '...' : ''}</span>
           </button>
         </div>
       </div>

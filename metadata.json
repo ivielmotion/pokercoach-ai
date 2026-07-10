@@ -1,0 +1,8 @@
+{
+  "name": "PokerCoach AI",
+  "description": "Professional poker training platform with AI-driven multi-coach strategies, hand analysis, and adaptive learning.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

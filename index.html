@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PokerCoach AI - Pro Edition</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+      body { margin: 0; font-family: 'Inter', system-ui, sans-serif; background: #0B0F19; }
+      #loading {
+        position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: #0B0F19; color: #10B981; z-index: 9999;
+      }
+      #loading .spinner {
+        width: 48px; height: 48px; border: 3px solid #1F2937; border-top-color: #10B981; border-radius: 50%;
+        animation: spin 0.8s linear infinite; margin-bottom: 20px;
+      }
+      #loading h1 { color: #F9FAFB; font-size: 1.5rem; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.02em; }
+      #loading p { color: #6B7280; font-size: 0.875rem; margin: 0; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div id="loading">
+      <div class="spinner"></div>
+      <h1>PokerCoach AI</h1>
+      <p>Cargando entrenamiento profesional...</p>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

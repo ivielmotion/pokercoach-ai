@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { Database, Upload, FileText, CheckCircle2, Trash2, Zap, Package, TrendingUp, Video, GraduationCap, BookOpen, Loader2, Edit3 } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -368,6 +368,10 @@ export function DataPackManager() {
   const [editingGuide, setEditingGuide] = useState<StudyGuide | null>(null);
   const [guideDirty, setGuideDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    void refreshPacks();
+  }, []);
 
   const refreshPacks = async () => {
     const { refreshDataPacks } = await import('../../data/dataPackService');

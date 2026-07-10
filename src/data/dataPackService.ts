@@ -78,6 +78,8 @@ const LS_ACTIVE_KEY = 'pokercoach_active_datapack';
 const LS_PROGRESS_PREFIX = 'pokercoach_games_state_';
 const LS_STUDY_FOCUS_KEY = 'pokercoach_study_focus';
 
+let remotePacksCache: DataPack[] | null = null;
+
 export function setStudyFocus(focus: Omit<StudyFocus, 'createdAt'>): void {
   localStorage.setItem(LS_STUDY_FOCUS_KEY, JSON.stringify({ ...focus, createdAt: new Date().toISOString() }));
   window.dispatchEvent(new CustomEvent('study-focus-changed', { detail: focus }));
@@ -476,6 +478,7 @@ export function getTestDataPack(): DataPack {
 }
 
 function loadPacks(): DataPack[] {
+  if (remotePacksCache) return remotePacksCache;
   try {
     const raw = localStorage.getItem(LS_PACKS_KEY);
     return raw ? JSON.parse(raw) : [];
@@ -485,7 +488,75 @@ function loadPacks(): DataPack[] {
 }
 
 function savePacks(packs: DataPack[]): void {
+  remotePacksCache = packs;
   localStorage.setItem(LS_PACKS_KEY, JSON.stringify(packs));
+}
+
+function dbToDataPack(data: any): DataPack {
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description || '',
+    type: data.type || 'custom',
+    sourceType: data.source_type,
+    studyGuide: data.study_guide,
+    studyPlan: data.study_plan,
+    conceptMap: data.concept_map,
+    coverageMatrix: data.coverage_matrix,
+    editableGuide: data.editable_guide,
+    sources: data.sources,
+    concepts: data.concepts || [],
+    multipleChoiceQuestions: data.multiple_choice_questions || [],
+    pathQuestions: data.path_questions || [],
+    trueFalseQuestions: data.true_false_questions || [],
+    relationships: data.relationships || [],
+    metadata: data.metadata,
+    rawContent: data.raw_content,
+    systemPrompt: data.system_prompt,
+    createdAt: data.created_at,
+  };
+}
+
+function dataPackToDb(pack: DataPack): Record<string, unknown> {
+  return {
+    name: pack.name,
+    description: pack.description,
+    type: pack.type,
+    source_type: pack.sourceType,
+    study_guide: pack.studyGuide,
+    study_plan: pack.studyPlan,
+    concept_map: pack.conceptMap,
+    coverage_matrix: pack.coverageMatrix,
+    editable_guide: pack.editableGuide,
+    sources: pack.sources || [],
+    concepts: pack.concepts || [],
+    multiple_choice_questions: pack.multipleChoiceQuestions || [],
+    path_questions: pack.pathQuestions || [],
+    true_false_questions: pack.trueFalseQuestions || [],
+    relationships: pack.relationships || [],
+    metadata: pack.metadata,
+    raw_content: pack.rawContent,
+    system_prompt: pack.systemPrompt,
+  };
+}
+
+export async function refreshDataPacks(): Promise<DataPack[]> {
+  const { supabaseDatapacks } = await import('../lib/supabase');
+  const { data, error } = await supabaseDatapacks
+    .from('datapacks')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error loading DataPacks from Supabase:', error);
+    throw new Error(`Error al cargar DataPacks desde Supabase: ${error.message}`);
+  }
+
+  const remotePacks = (data || []).map(dbToDataPack);
+  if (!remotePacks.find(p => p.id === 'codex-poker')) remotePacks.unshift(getBuiltInCodex());
+  if (!remotePacks.find(p => p.id === 'test-pack')) remotePacks.push(getTestDataPack());
+  savePacks(remotePacks);
+  return remotePacks;
 }
 
 function ensureBuiltIn(): DataPack[] {
@@ -531,8 +602,33 @@ export function updateDataPack(updatedPack: DataPack): DataPack {
   if (index < 0) throw new Error('No se encontro el DataPack para editar.');
   packs[index] = updatedPack;
   savePacks(packs);
+  void updateDataPackAsync(updatedPack);
   window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id: updatedPack.id } }));
   return updatedPack;
+}
+
+export async function updateDataPackAsync(updatedPack: DataPack): Promise<DataPack> {
+  if (updatedPack.type === 'codex') {
+    throw new Error('Los DataPacks incluidos no se pueden editar.');
+  }
+  const { supabaseDatapacks } = await import('../lib/supabase');
+  const { data, error } = await supabaseDatapacks
+    .from('datapacks')
+    .update(dataPackToDb(updatedPack))
+    .eq('id', updatedPack.id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating datapack in Supabase:', error);
+    throw new Error(`Error al actualizar el DataPack en la base de datos: ${error.message}`);
+  }
+  const pack = dbToDataPack(data);
+  const packs = ensureBuiltIn();
+  const index = packs.findIndex(item => item.id === pack.id);
+  if (index >= 0) packs[index] = pack;
+  savePacks(packs);
+  return pack;
 }
 
 export function createDataPack(
@@ -600,25 +696,7 @@ export async function saveDataPackDraftAllowIncompleteAsync(draft: DataPackDraft
   const supabaseDatapacks = (await import('../lib/supabase')).supabaseDatapacks;
   
   const pack = draft.pack;
-  const dbData = {
-    name: pack.name,
-    description: pack.description,
-    type: pack.type,
-    source_type: pack.sourceType,
-    study_guide: pack.studyGuide,
-    study_plan: pack.studyPlan,
-    concept_map: pack.conceptMap,
-    coverage_matrix: pack.coverageMatrix,
-    sources: pack.sources,
-    concepts: pack.concepts,
-    multiple_choice_questions: pack.multipleChoiceQuestions,
-    path_questions: pack.pathQuestions,
-    true_false_questions: pack.trueFalseQuestions,
-    relationships: pack.relationships,
-    metadata: pack.metadata,
-    raw_content: pack.rawContent,
-    system_prompt: pack.systemPrompt,
-  };
+  const dbData = dataPackToDb(pack);
 
   const { data, error } = await supabaseDatapacks
     .from('datapacks')
@@ -628,32 +706,16 @@ export async function saveDataPackDraftAllowIncompleteAsync(draft: DataPackDraft
 
   if (error) {
     console.error('Error saving datapack to Supabase:', error);
-    throw new Error('Error al guardar el DataPack en la base de datos.');
+    throw new Error(`Error al guardar el DataPack en la base de datos: ${error.message}`);
   }
 
+  const savedPack = dbToDataPack(data);
+  const packs = ensureBuiltIn().filter(item => item.id !== savedPack.id);
+  packs.unshift(savedPack);
+  savePacks(packs);
   window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id: data.id } }));
   
-  return {
-    id: data.id,
-    name: data.name,
-    description: data.description,
-    type: data.type,
-    sourceType: data.source_type,
-    studyGuide: data.study_guide,
-    studyPlan: data.study_plan,
-    conceptMap: data.concept_map,
-    coverageMatrix: data.coverage_matrix,
-    sources: data.sources,
-    concepts: data.concepts || [],
-    multipleChoiceQuestions: data.multiple_choice_questions,
-    pathQuestions: data.path_questions || [],
-    trueFalseQuestions: data.true_false_questions || [],
-    relationships: data.relationships,
-    metadata: data.metadata,
-    rawContent: data.raw_content,
-    systemPrompt: data.system_prompt,
-    createdAt: data.created_at,
-  };
+  return savedPack;
 }
 
 export function saveDataPackDraft(draft: DataPackDraft): DataPack {

@@ -121,6 +121,8 @@ Flujo actual:
 - `npm run dev` ejecuta `tsx server.ts`.
 - `ABRIR.bat` debe abrir esta app completa con `npm run dev`, no un servidor estático con Python.
 - Express carga `.env.local` y expone `/api/synthesize`.
+- En Vercel, `/api/synthesize` vive en `api/synthesize.ts` como función serverless. Vercel no ejecuta `server.ts` de Express.
+- El prompt compartido vive en `src/server/syntexEngine.ts`, usado por local (`server.ts`) y producción (`api/synthesize.ts`).
 - `DataPackManager.tsx` envía el TXT a `/api/synthesize`.
 - `src/services/sintexTransformer.ts` convierte el Markdown devuelto en `StudyGuide` editable.
 - `StudyGuideViewer.tsx` permite editar listas, textos y tablas sin cambiar la estructura base.

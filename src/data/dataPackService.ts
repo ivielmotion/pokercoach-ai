@@ -631,9 +631,6 @@ export async function saveDataPackDraftAllowIncompleteAsync(draft: DataPackDraft
     throw new Error('Error al guardar el DataPack en la base de datos.');
   }
 
-  // Actualizar cache local
-  datapacksCache = null;
-  
   window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id: data.id } }));
   
   return {

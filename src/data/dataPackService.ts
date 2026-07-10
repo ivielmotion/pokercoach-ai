@@ -741,10 +741,36 @@ export function deleteDataPack(id: string): void {
   if (id === 'codex-poker') return;
   const packs = loadPacks().filter(p => p.id !== id);
   savePacks(packs);
+  void deleteDataPackAsync(id);
   const activeId = localStorage.getItem(LS_ACTIVE_KEY);
   if (activeId === id) {
     localStorage.setItem(LS_ACTIVE_KEY, 'codex-poker');
     window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id: 'codex-poker' } }));
+  }
+  localStorage.removeItem(LS_PROGRESS_PREFIX + id);
+}
+
+export async function deleteDataPackAsync(id: string): Promise<void> {
+  if (id === 'codex-poker' || id === 'test-pack') return;
+  const { supabaseDatapacks } = await import('../lib/supabase');
+  const { error } = await supabaseDatapacks
+    .from('datapacks')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting datapack from Supabase:', error);
+    throw new Error(`Error al eliminar el DataPack en la base de datos: ${error.message}`);
+  }
+
+  const packs = loadPacks().filter(p => p.id !== id);
+  savePacks(packs);
+  const activeId = localStorage.getItem(LS_ACTIVE_KEY);
+  if (activeId === id) {
+    localStorage.setItem(LS_ACTIVE_KEY, 'codex-poker');
+    window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id: 'codex-poker' } }));
+  } else {
+    window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id } }));
   }
   localStorage.removeItem(LS_PROGRESS_PREFIX + id);
 }

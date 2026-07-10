@@ -11,6 +11,7 @@ import {
   saveDataPackDraftAllowIncomplete,
   saveDataPackDraftAllowIncompleteAsync,
   deleteDataPack,
+  deleteDataPackAsync,
   getProgressForPack,
   updateDataPack,
   type DataPack,
@@ -589,10 +590,19 @@ export function DataPackManager() {
     refreshPacks();
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (id === 'codex-poker') return;
-    deleteDataPack(id);
-    refreshPacks();
+    if (!window.confirm('¿Eliminar este DataPack? Esta acción no se puede deshacer.')) return;
+    setError('');
+    setSuccess('');
+    try {
+      await deleteDataPackAsync(id);
+      await refreshPacks();
+      setSuccess('DataPack eliminado correctamente.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo eliminar el DataPack.');
+    }
   };
 
   const handleCancel = () => {
@@ -931,6 +941,7 @@ export function DataPackManager() {
             <div className="flex items-center gap-2 flex-wrap md:shrink-0 w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-border/20 justify-end">
               {pack.type !== 'codex' && (
                 <button
+                  type="button"
                   onClick={() => startEditingPack(pack)}
                   className={cn(
                     'px-2.5 py-1.5 rounded-lg text-xs md:text-sm font-bold flex items-center gap-1',
@@ -942,20 +953,21 @@ export function DataPackManager() {
                   <span className="inline sm:hidden">Editar</span>
                 </button>
               )}
-                  <button
-                    onClick={() => setExpandedPackId(expandedPackId === pack.id ? null : pack.id)}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedPackId(expandedPackId === pack.id ? null : pack.id)}
                     className="px-3 py-1.5 bg-bg-secondary hover:bg-bg-card text-text-secondary hover:text-text-primary rounded-lg text-sm font-bold"
                   >
                     {expandedPackId === pack.id ? 'Ocultar' : 'Ver conceptos'}
                   </button>
                   {!isActive && (
-                    <button onClick={() => handleActivate(pack.id)} className="px-3 py-1.5 bg-accent-green/20 hover:bg-accent-green/30 text-accent-green rounded-lg text-sm font-bold flex items-center gap-1">
+                    <button type="button" onClick={() => handleActivate(pack.id)} className="px-3 py-1.5 bg-accent-green/20 hover:bg-accent-green/30 text-accent-green rounded-lg text-sm font-bold flex items-center gap-1">
                       <Zap className="w-3 h-3" />
                       Activar
                     </button>
                   )}
                   {pack.type !== 'codex' && (
-                    <button onClick={() => handleDelete(pack.id)} className="p-1.5 hover:bg-red-900/30 text-text-muted hover:text-red-400 rounded-lg transition-colors">
+                    <button type="button" onClick={() => void handleDelete(pack.id)} className="p-1.5 hover:bg-red-900/30 text-text-muted hover:text-red-400 rounded-lg transition-colors" title="Eliminar DataPack">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}

@@ -591,6 +591,74 @@ export function prepareDataPackFromParsed(
   return buildDataPackDraft(name, description, sourceType, sources, parsed, 'custom');
 }
 
+export async function saveDataPackDraftAsync(draft: DataPackDraft): Promise<DataPack> {
+  assertReportReady(draft.report);
+  return saveDataPackDraftAllowIncompleteAsync(draft);
+}
+
+export async function saveDataPackDraftAllowIncompleteAsync(draft: DataPackDraft): Promise<DataPack> {
+  const supabaseDatapacks = (await import('../lib/supabase')).supabaseDatapacks;
+  
+  const pack = draft.pack;
+  const dbData = {
+    name: pack.name,
+    description: pack.description,
+    type: pack.type,
+    source_type: pack.sourceType,
+    study_guide: pack.studyGuide,
+    study_plan: pack.studyPlan,
+    concept_map: pack.conceptMap,
+    coverage_matrix: pack.coverageMatrix,
+    sources: pack.sources,
+    concepts: pack.concepts,
+    multiple_choice_questions: pack.multipleChoiceQuestions,
+    path_questions: pack.pathQuestions,
+    true_false_questions: pack.trueFalseQuestions,
+    relationships: pack.relationships,
+    metadata: pack.metadata,
+    raw_content: pack.rawContent,
+    system_prompt: pack.systemPrompt,
+  };
+
+  const { data, error } = await supabaseDatapacks
+    .from('datapacks')
+    .insert(dbData)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error saving datapack to Supabase:', error);
+    throw new Error('Error al guardar el DataPack en la base de datos.');
+  }
+
+  // Actualizar cache local
+  datapacksCache = null;
+  
+  window.dispatchEvent(new CustomEvent('datapack-changed', { detail: { id: data.id } }));
+  
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description,
+    type: data.type,
+    sourceType: data.source_type,
+    studyGuide: data.study_guide,
+    studyPlan: data.study_plan,
+    conceptMap: data.concept_map,
+    coverageMatrix: data.coverage_matrix,
+    sources: data.sources,
+    concepts: data.concepts || [],
+    multipleChoiceQuestions: data.multiple_choice_questions,
+    pathQuestions: data.path_questions || [],
+    trueFalseQuestions: data.true_false_questions || [],
+    relationships: data.relationships,
+    metadata: data.metadata,
+    rawContent: data.raw_content,
+    systemPrompt: data.system_prompt,
+    createdAt: data.created_at,
+  };
+}
+
 export function saveDataPackDraft(draft: DataPackDraft): DataPack {
   assertReportReady(draft.report);
   return saveDataPackDraftAllowIncomplete(draft);
@@ -601,6 +669,12 @@ export function saveDataPackDraftAllowIncomplete(draft: DataPackDraft): DataPack
   const pack = draft.pack;
   packs.push(pack);
   savePacks(packs);
+  
+  // Guardar en Supabase de forma asíncrona (fire and forget)
+  saveDataPackDraftAllowIncompleteAsync(draft).catch(err => {
+    console.error('Error saving to Supabase:', err);
+  });
+  
   return pack;
 }
 

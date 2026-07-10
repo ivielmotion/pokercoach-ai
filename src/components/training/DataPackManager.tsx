@@ -9,6 +9,7 @@ import {
   prepareDataPackFromSources,
   saveDataPackDraft,
   saveDataPackDraftAllowIncomplete,
+  saveDataPackDraftAllowIncompleteAsync,
   deleteDataPack,
   getProgressForPack,
   updateDataPack,
@@ -368,7 +369,9 @@ export function DataPackManager() {
   const [guideDirty, setGuideDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const refreshPacks = () => {
+  const refreshPacks = async () => {
+    const { refreshDataPacks } = await import('../../data/dataPackService');
+    await refreshDataPacks();
     setPacks(getAllDataPacks());
     setActiveId(getActiveDataPack()?.id || 'codex-poker');
   };
@@ -539,7 +542,10 @@ export function DataPackManager() {
         pack: buildPackFromEditableGuide(nextDraftBase.pack, editableGuide),
       };
       setDraft(nextDraft);
-      const pack = saveDataPackDraftAllowIncomplete(nextDraft);
+      
+      // Guardar en Supabase de forma asíncrona y esperar
+      const pack = await saveDataPackDraftAllowIncompleteAsync(nextDraft);
+      
       setActiveDataPack(pack.id);
       setEditingPackId(pack.id);
       setEditingGuide(pack.editableGuide || editableGuide);
@@ -547,7 +553,7 @@ export function DataPackManager() {
       setExpandedPackId(pack.id);
       setShowCreate(false);
       resetCreateForm();
-      refreshPacks();
+      await refreshPacks();
       setSuccess(`Documento "${pack.name}" creado y activado automáticamente para editar.`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
@@ -555,10 +561,10 @@ export function DataPackManager() {
     }
   };
 
-  const handleActivateDraft = () => {
+  const handleActivateDraft = async () => {
     if (!draft) return;
     try {
-      const pack = saveDataPackDraft(draft);
+      const pack = await saveDataPackDraftAllowIncompleteAsync(draft);
       setActiveDataPack(pack.id);
       setShowCreate(false);
       setEditingPackId(pack.id);
@@ -566,7 +572,7 @@ export function DataPackManager() {
       setGuideDirty(false);
       setExpandedPackId(pack.id);
       resetCreateForm();
-      refreshPacks();
+      await refreshPacks();
       setSuccess(`Conocimiento "${pack.name}" creado con ${pack.concepts.length} conceptos y activado para juegos.`);
       setTimeout(() => setSuccess(''), 4000);
     } catch (err) {
